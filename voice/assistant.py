@@ -5,19 +5,19 @@ import requests
 from openai import OpenAI
 from pydub import AudioSegment
 import webrtcvad
-from dotenv import load_dotenv
-load_dotenv()
+import config
+
 # ===== Azure設定 =====
-API_KEY    = os.getenv("AZURE_API_KEY")
-AZURE_BASE = os.getenv("AZURE_BASE_URL")
+API_KEY    = config.AZURE_OPENAI_API_KEY
+AZURE_BASE = config.AZURE_BASE_URL
 API_VER    = "2025-03-01-preview"
 
 if not API_KEY or not AZURE_BASE:
     raise ValueError(".envファイルにAZURE_API_KEYとAZURE_BASE_URLを設定してください")
 
-STT_DEPLOY  = os.getenv("AZURE_STT_DEPLOY",  "gpt-4o-transcribe-test")
-CHAT_DEPLOY = os.getenv("AZURE_CHAT_DEPLOY", "gpt-5.2-chat-test")
-TTS_DEPLOY  = os.getenv("AZURE_TTS_DEPLOY",  "gpt-4o-mini-tts-test")
+STT_DEPLOY  = config.AZURE_STT_DEPLOY
+CHAT_DEPLOY = config.AZURE_CHAT_DEPLOY
+TTS_DEPLOY  = config.AZURE_TTS_DEPLOY
 
 STT_URL = f"{AZURE_BASE}/openai/deployments/{STT_DEPLOY}/audio/transcriptions?api-version={API_VER}"
 TTS_URL = f"{AZURE_BASE}/openai/deployments/{TTS_DEPLOY}/audio/speech?api-version={API_VER}"
