@@ -2,14 +2,7 @@ import cv2
 import time
 import threading
 import numpy as np
-from config import (
-    DEAD_ZONE,
-    SMOOTHING_ALPHA,
-    MIN_ANGLE_CHANGE,
-    HEAD_Y_MAX,
-    HEAD_P_MAX,
-    SEND_INTERVAL,
-)
+import config
 from sota import controller
 
 # ========== 状態管理 ==========
@@ -30,7 +23,7 @@ def set_tracking(enabled: bool):
 def is_tracking() -> bool:
     return _tracking_enabled
 
-def process_frame(frame: np.ndarray):
+def process_frame(frame: np.ndarray, auto_send: bool = True):
     global _prev_yaw, _prev_pitch, _last_send_time
 
     h, w = frame.shape[:2]
@@ -47,7 +40,7 @@ def process_frame(frame: np.ndarray):
     if len(faces) == 0:
         cv2.putText(frame, "No Face", (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (150, 150, 150), 2)
-        return frame, []
+        return frame, [], None
 
     # 一番大きい顔
     x, y, fw, fh = max(faces, key=lambda f: f[2] * f[3])
@@ -65,38 +58,41 @@ def process_frame(frame: np.ndarray):
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (80, 180, 80), 1)
 
     if not _tracking_enabled:
-        return frame, list(faces)
+        return frame, list(faces), None
 
     # 送信間隔チェック
     now = time.time()
-    if now - _last_send_time < SEND_INTERVAL:
-        return frame, list(faces)
+    if now - _last_send_time < config.SEND_INTERVAL:
+        return frame, list(faces), None
 
     # 角度計算
     dx = face_cx - cx
     dy = face_cy - cy
 
     # デッドゾーン
-    if abs(dx) < DEAD_ZONE: dx = 0
-    if abs(dy) < DEAD_ZONE: dy = 0
+    if abs(dx) < config.DEAD_ZONE: dx = 0
+    if abs(dy) < config.DEAD_ZONE: dy = 0
 
     # raw値に変換
-    raw_yaw   = -(dx / (w / 2)) * HEAD_Y_MAX
-    raw_pitch =  (dy / (h / 2)) * HEAD_P_MAX
+    raw_yaw   = -(dx / (w / 2)) * config.HEAD_Y_MAX
+    raw_pitch =  (dy / (h / 2)) * config.HEAD_P_MAX
 
     with _lock:
         # 最小変化量チェック
-        if abs(raw_yaw - _prev_yaw) < MIN_ANGLE_CHANGE and \
-           abs(raw_pitch - _prev_pitch) < MIN_ANGLE_CHANGE:
-            return frame, list(faces)
+        if abs(raw_yaw - _prev_yaw) < config.MIN_ANGLE_CHANGE and \
+           abs(raw_pitch - _prev_pitch) < config.MIN_ANGLE_CHANGE:
+            return frame, list(faces), None
+        
+        angles = {"yaw": int(round(raw_yaw)), "pitch": int(round(raw_pitch))}
 
-        controller.send(servo={
-            "Head_Y": int(round(raw_yaw)),
-            "Head_P": int(round(raw_pitch)),
-        })
+        if auto_send:
+            controller.send(servo={
+                "Head_Y": int(round(raw_yaw)),
+                "Head_P": int(round(raw_pitch)),
+            })
 
         _prev_yaw       = raw_yaw
         _prev_pitch     = raw_pitch
         _last_send_time = now
 
-    return frame, list(faces)
+    return frame, list(faces), angles

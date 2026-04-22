@@ -29,7 +29,14 @@ class Detector:
             label = self.model.names[int(box.cls)]
             confidence = float(box.conf)
             current_labels.add(label)
-            detections.append({"label": label, "confidence": confidence})
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+            detections.append({
+                "label":      label,
+                "confidence": confidence,
+                "bbox":       [x1, y1, x2, y2],
+                "center":     [cx, cy],
+            })
 
         # 検出物体の種類が変化したか判定
         changed = current_labels != self.last_labels
