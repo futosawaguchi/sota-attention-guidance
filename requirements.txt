@@ -4,3 +4,9 @@ ultralytics
 python-dotenv
 azure-ai-vision-imageanalysis
 numpy
+requests
+sounddevice
+webrtcvad-wheels
+openai
+pydub
+azure-identity
