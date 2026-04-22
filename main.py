@@ -2,7 +2,6 @@ import threading
 import time
 import cv2
 from flask import Flask, Response, render_template, jsonify, request
-
 import config
 from sota import controller
 from tracking import face_tracker
@@ -10,6 +9,7 @@ from detection.camera import Camera
 from detection.detector import Detector
 from detection.azure_client import AzureClient
 from voice import assistant
+from controller import attention_controller
 
 app = Flask(__name__)
 
@@ -27,6 +27,16 @@ _user_frame_lock   = threading.Lock()
 _env_frame_lock    = threading.Lock()
 _detections_lock   = threading.Lock()
 
+# ========== 共有データへのアクセサ関数 ==========
+# attention_controllerに渡すゲッター関数
+def get_latest_detections():
+    with _detections_lock:
+        return _latest_detections.copy()
+
+# face_trackerから顔リストを取得するための変数を追加
+_latest_faces = []
+_faces_lock   = threading.Lock()
+
 # ========== カメラAループ（ユーザ顔追従） ==========
 def camera_user_loop():
     global _latest_user_frame
@@ -39,6 +49,12 @@ def camera_user_loop():
         frame, faces, angles = face_tracker.process_frame(frame)
         with _user_frame_lock:
             _latest_user_frame = frame
+        with _faces_lock:
+            _latest_faces = faces
+
+def get_latest_faces():
+    with _faces_lock:
+        return _latest_faces.copy()
 
 # ========== カメラBループ（物体検出） ==========
 def camera_env_loop():
@@ -146,5 +162,8 @@ if __name__ == '__main__':
     threading.Thread(target=camera_user_loop, daemon=True).start()
     threading.Thread(target=camera_env_loop,  daemon=True).start()
     threading.Thread(target=voice_loop,        daemon=True).start()
+    
+    # attention_controllerを起動
+    attention_controller.start(get_latest_detections, get_latest_faces)
 
     app.run(host='0.0.0.0', port=config.FLASK_PORT, debug=False, threaded=True)
