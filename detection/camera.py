@@ -1,12 +1,12 @@
 import cv2
 import threading
 import time
-
+import config
 
 class Camera:
-    def __init__(self, camera_index: int):
-        self.camera_index = camera_index
-        self.cap = cv2.VideoCapture(camera_index)
+    def __init__(self, camera_index: int = None):
+        self.camera_index = camera_index if camera_index is not None else config.CAMERA_ENV_INDEX
+        self.cap = cv2.VideoCapture(self.camera_index)
         self.frame = None
         self.lock = threading.Lock()
         self.running = False

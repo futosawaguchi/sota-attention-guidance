@@ -11,8 +11,8 @@ import config
 class AzureClient:
     def __init__(self):
         self.client = ImageAnalysisClient(
-            endpoint=config.AZURE_ENDPOINT,
-            credential=AzureKeyCredential(config.AZURE_API_KEY),
+            endpoint=config.AZURE_CV_ENDPOINT,
+            credential=AzureKeyCredential(config.AZURE_CV_API_KEY),
         )
         self.last_called = 0.0
         self.latest_result: dict | None = None
