@@ -156,20 +156,12 @@ def play_tts(text: str):
     seg = seg.set_frame_rate(24000).set_channels(1).set_sample_width(2)
     pcm = np.frombuffer(seg.raw_data, dtype=np.int16).astype(np.float32) / 32768.0
 
-    barge_in_event.clear()
     is_ai_speaking.set()
     try:
         sd.play(pcm, samplerate=24000)
-        while sd.get_stream().active:
-            if barge_in_event.is_set():
-                sd.stop()
-                print("(バージイン：AI発話を中断)\n")
-                break
-            time.sleep(0.05)
-        sd.wait()
+        sd.wait()  # バージイン検知なしで最後まで再生
     finally:
         is_ai_speaking.clear()
-        barge_in_event.clear()
 
 
 # ---------------------------------------------------------------
@@ -233,8 +225,8 @@ def process_speech(initial_frames: list):
 def is_echo_frame(frame_bytes: bytes) -> bool:
     if not is_ai_speaking.is_set():
         return False
-    pcm = np.frombuffer(frame_bytes, dtype=np.int16).astype(np.float32)
-    return float(np.sqrt(np.mean(pcm ** 2))) < 800
+    # Sota発話中は全フレームを無視
+    return True  # ← 閾値判定をやめて常にTrueに
 
 
 def audio_callback(indata, frames, time_info, status):
