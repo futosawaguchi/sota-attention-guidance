@@ -168,7 +168,7 @@ def api_state():
 if __name__ == '__main__':
     threading.Thread(target=camera_user_loop, daemon=True).start()
     threading.Thread(target=camera_env_loop,  daemon=True).start()
-    threading.Thread(target=voice_loop,        daemon=True).start()
+    #threading.Thread(target=voice_loop,        daemon=True).start()
     
     # attention_controllerを起動
     attention_controller.start(get_latest_detections, get_latest_faces)
