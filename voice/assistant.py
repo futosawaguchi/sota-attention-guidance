@@ -32,8 +32,8 @@ VAD_MODE      = 2
 vad           = webrtcvad.Vad(VAD_MODE)
 
 # ===== 動的変更可能なパラメータ =====
-silence_sec    = 0.75
-extra_wait_sec = 1.0
+silence_sec    = 1.2
+extra_wait_sec = 1.5
 max_retry      = 2
 
 # ===== 状態 =====
