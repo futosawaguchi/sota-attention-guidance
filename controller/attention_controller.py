@@ -2,7 +2,8 @@ import time
 import threading
 import config
 from sota import controller as sota
-from voice import assistant
+#from voice import assistantd 
+from voice.assistant import send_tts
 
 # ========== 状態定義 ==========
 STATE_IDLE    = "idle"
@@ -90,7 +91,7 @@ def _guide_loop(target: dict, get_faces):
     # ① 腕を物体方向へ + 発話
     sota.send(servo={**arm})
     time.sleep(0.5)
-    assistant.play_tts(f"{target['label']}を見てください")
+    send_tts(f"{target['label']}を見てください")
     time.sleep(0.3)
 
     loop_count = 0
@@ -137,7 +138,7 @@ def _guide_loop(target: dict, get_faces):
 
         # ④ 発話（2ループに1回）
         if loop_count % 2 == 0:
-            assistant.play_tts("こちらです、見てください")
+            send_tts("こちらです、見てください")
         time.sleep(0.5)
 
         loop_count += 1
@@ -152,7 +153,7 @@ def _do_success(target: dict):
     """成功時の動作"""
     sota.send(servo={"Head_Y": 0, "Head_P": 0})
     time.sleep(0.3)
-    assistant.play_tts(f"ありがとうございます、{target['label']}ですね")
+    send_tts(f"ありがとうございます、{target['label']}ですね")
     time.sleep(SUCCESS_HOLD_SEC)
     sota.reset_posture()
     with _state_lock:

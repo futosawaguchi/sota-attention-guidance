@@ -57,7 +57,7 @@ def get_latest_faces():
         return _latest_faces.copy()
 
 # ========== カメラBループ（物体検出） ==========
-YOLO_INTERVAL = 2.0  # 推論間隔（秒）→ 重ければ1.0に上げる
+YOLO_INTERVAL = 10.0  # 推論間隔（秒)
 
 def camera_env_loop():
     global _latest_env_frame, _latest_detections
@@ -181,7 +181,7 @@ def api_state():
 if __name__ == '__main__':
     threading.Thread(target=camera_user_loop, daemon=True).start()
     threading.Thread(target=camera_env_loop,  daemon=True).start()
-    threading.Thread(target=voice_loop,        daemon=True).start()
+    #threading.Thread(target=voice_loop,        daemon=True).start()
     
     # attention_controllerを起動
     attention_controller.start(get_latest_detections, get_latest_faces)

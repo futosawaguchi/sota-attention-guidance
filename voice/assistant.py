@@ -158,7 +158,7 @@ def play_tts(text: str):
 
     is_ai_speaking.set()
     try:
-        sd.play(pcm, samplerate=24000)
+        sd.play(pcm, samplerate=24000, blocking=True)
         sd.wait()  # バージイン検知なしで最後まで再生
     finally:
         is_ai_speaking.clear()
@@ -293,3 +293,11 @@ if __name__ == "__main__":
         vad_loop()
     except KeyboardInterrupt:
         print("\n終了しました")
+        
+import socket as _socket
+
+_tts_sock = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
+
+def send_tts(text: str):
+    """tts_server.pyにテキストを送信して再生させる"""
+    _tts_sock.sendto(text.encode("utf-8"), ("127.0.0.1", 19000))
