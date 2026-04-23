@@ -1,0 +1,458 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: 'DM Sans', sans-serif;
+  background: #f8f8f6;
+  color: #1a1a18;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ========== Header ========== */
+header {
+  background: #fff;
+  border-bottom: 0.5px solid #e4e3e0;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.logo {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: #1a1a18;
+}
+
+.logo span {
+  font-weight: 300;
+  color: #aaa;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.state-badge {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  padding: 4px 12px;
+  border-radius: 99px;
+  background: #f4f4f2;
+  color: #888;
+  border: 0.5px solid #e4e3e0;
+  transition: all 0.3s;
+}
+
+.state-idle    { background: #f4f4f2; color: #888;    border-color: #e4e3e0; }
+.state-guiding { background: #faeeda; color: #633806; border-color: #EF9F27; }
+.state-success { background: #edf7f2; color: #0F6E56; border-color: #1D9E75; }
+
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #888;
+  background: #f4f4f2;
+  border: 0.5px solid #e4e3e0;
+  padding: 5px 12px;
+  border-radius: 99px;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+/* ========== Main ========== */
+main {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ========== Cameras ========== */
+.cameras {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.cam-card {
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  aspect-ratio: 16 / 9;
+}
+
+.cam-feed {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cam-label {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 3px 9px;
+  border-radius: 99px;
+}
+
+.tracking-toggle {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 0.5px solid #e4e3e0;
+  border-radius: 99px;
+  padding: 4px 12px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tracking-toggle.active {
+  border-color: #22c55e;
+  color: #166534;
+}
+
+.t-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ccc;
+  transition: background 0.2s;
+}
+
+.tracking-toggle.active .t-dot { background: #22c55e; }
+
+/* ========== Panels ========== */
+.panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.panel {
+  background: #fff;
+  border: 0.5px solid #e4e3e0;
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  min-height: 160px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 0.5px solid #f0f0ee;
+  flex-shrink: 0;
+}
+
+.panel-title {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #aaa;
+}
+
+.badge {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  background: #f4f4f2;
+  color: #666;
+  padding: 2px 9px;
+  border-radius: 99px;
+}
+
+.badge-blue {
+  background: #edf2fa;
+  color: #185FA5;
+}
+
+/* ========== YOLO List ========== */
+.det-list {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.det-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 0.5px solid #f4f4f2;
+}
+
+.det-item:last-child { border-bottom: none; }
+
+.det-label {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.conf-bar {
+  width: 64px;
+  height: 3px;
+  background: #f0f0ee;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.conf-fill {
+  height: 100%;
+  background: #1a1a18;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+
+.det-conf {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.empty-msg {
+  font-size: 13px;
+  color: #ccc;
+  text-align: center;
+  margin: auto;
+}
+
+/* ========== Azure Panel ========== */
+.azure-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.azure-caption {
+  font-size: 13px;
+  color: #444;
+  line-height: 1.65;
+}
+
+.azure-caption.empty {
+  color: #ccc;
+  font-size: 13px;
+  text-align: center;
+  margin: auto;
+}
+
+.tag-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.tag {
+  font-size: 11px;
+  padding: 3px 9px;
+  background: #f4f4f2;
+  color: #555;
+  border-radius: 99px;
+}
+
+/* ========== Footer ========== */
+footer {
+  background: #fff;
+  border-top: 0.5px solid #e4e3e0;
+  padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.footer-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.footer-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #aaa;
+  min-width: 36px;
+}
+
+/* ========== LED ========== */
+.led-btns {
+  display: flex;
+  gap: 7px;
+}
+
+.led-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s;
+  padding: 0;
+}
+
+.led-btn:hover { transform: scale(1.1); }
+.led-btn.active { border-color: #1a1a18; transform: scale(1.15); }
+
+.led-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: block;
+}
+
+.led-dot-white {
+  background: #f5f5f3;
+  border: 0.5px solid #ddd;
+}
+
+.led-dot-off {
+  background: #333;
+}
+
+/* ========== Pose ========== */
+.pose-btns {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pose-btn {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 0.5px solid #e4e3e0;
+  background: #f8f8f6;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.pose-btn:hover {
+  background: #fff;
+  border-color: #bbb;
+  color: #1a1a18;
+}
+
+.pose-btn:active {
+  transform: scale(0.97);
+}
+
+.reset-btn {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 0.5px solid #e4e3e0;
+  background: transparent;
+  color: #aaa;
+  cursor: pointer;
+  margin-left: auto;
+  transition: all 0.15s;
+}
+
+.reset-btn:hover {
+  border-color: #e24b4a;
+  color: #e24b4a;
+}
+
+/* ========== Toast ========== */
+#toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: #1a1a18;
+  color: #fff;
+  border-radius: 99px;
+  padding: 8px 18px;
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 100;
+}
+
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ========== Responsive ========== */
+@media (max-width: 768px) {
+  main { padding: 14px 16px; }
+  footer { padding: 14px 16px; }
+
+  .cameras {
+    grid-template-columns: 1fr;
+  }
+
+  .panels {
+    grid-template-columns: 1fr;
+  }
+
+  .cam-card {
+    aspect-ratio: 4 / 3;
+  }
+}
+
+@media (max-width: 480px) {
+  .pose-btns { gap: 4px; }
+  .pose-btn  { font-size: 11px; padding: 5px 10px; }
+}

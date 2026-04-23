@@ -157,6 +157,13 @@ def api_reset():
     controller.reset_posture()
     return jsonify({"status": "ok"})
 
+@app.route('/api/state')
+def api_state():
+    return jsonify({
+        "state":  attention_controller.get_state(),
+        "target": attention_controller.get_target(),
+    })
+
 # ========== 起動 ==========
 if __name__ == '__main__':
     threading.Thread(target=camera_user_loop, daemon=True).start()

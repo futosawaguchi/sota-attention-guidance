@@ -40,4 +40,4 @@ TABLE_HEIGHT_M = float(os.getenv("TABLE_HEIGHT_M", 0.72))  # 机の高さ(m)
 SOTA_HEIGHT_M  = float(os.getenv("SOTA_HEIGHT_M",  0.40))  # Sotaの高さ(m)
 
 # ========== Flask ==========
-FLASK_PORT = int(os.getenv("FLASK_PORT", 5000))
+FLASK_PORT = int(os.getenv("FLASK_PORT", 5001))

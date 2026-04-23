@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sota Attention Guidance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <header>
+    <div class="logo">sota <span>attention guidance</span></div>
+    <div class="header-right">
+      <div class="state-badge" id="state-badge">IDLE</div>
+      <div class="status-pill">
+        <div class="status-dot"></div>
+        <span>connected</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+    <section class="cameras">
+      <div class="cam-card">
+        <img src="/video_feed/user" alt="User Camera" class="cam-feed">
+        <div class="cam-label">CAM A · USER</div>
+        <button class="tracking-toggle active" id="tracking-btn" onclick="toggleTracking()">
+          <div class="t-dot"></div>
+          <span id="tracking-label">tracking on</span>
+        </button>
+      </div>
+      <div class="cam-card">
+        <img src="/video_feed/env" alt="Environment Camera" class="cam-feed">
+        <div class="cam-label">CAM B · ENV</div>
+      </div>
+    </section>
+
+    <section class="panels">
+
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">YOLO detection</span>
+          <span class="badge" id="yolo-count">0 objects</span>
+        </div>
+        <div class="det-list" id="det-list">
+          <p class="empty-msg">検出中...</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">Azure Vision</span>
+          <span class="badge badge-blue" id="azure-status">待機中</span>
+        </div>
+        <div class="azure-body">
+          <p class="azure-caption empty" id="azure-caption">物体の変化が検出されると分析が始まります</p>
+          <div class="tag-wrap" id="tag-wrap"></div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <footer>
+
+    <div class="footer-row">
+      <span class="footer-label">LED</span>
+      <div class="led-btns">
+        <button class="led-btn active" data-color="green" onclick="setLED('green')" title="green">
+          <span class="led-dot" style="background:#22c55e;"></span>
+        </button>
+        <button class="led-btn" data-color="blue" onclick="setLED('blue')" title="blue">
+          <span class="led-dot" style="background:#3b82f6;"></span>
+        </button>
+        <button class="led-btn" data-color="red" onclick="setLED('red')" title="red">
+          <span class="led-dot" style="background:#ef4444;"></span>
+        </button>
+        <button class="led-btn" data-color="white" onclick="setLED('white')" title="white">
+          <span class="led-dot led-dot-white"></span>
+        </button>
+        <button class="led-btn" data-color="off" onclick="setLED('off')" title="off">
+          <span class="led-dot led-dot-off"></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="footer-row">
+      <span class="footer-label">Pose</span>
+      <div class="pose-btns">
+        <button class="pose-btn" onclick="doMotion('nod')">nod</button>
+        <button class="pose-btn" onclick="doMotion('shake_head')">shake</button>
+        <button class="pose-btn" onclick="doMotion('right_hand_up')">right hand up</button>
+        <button class="pose-btn" onclick="doMotion('left_hand_up')">left hand up</button>
+        <button class="pose-btn" onclick="doMotion('both_hands_up')">both hands up</button>
+        <button class="pose-btn" onclick="doMotion('bye_bye')">bye bye</button>
+      </div>
+      <button class="reset-btn" onclick="resetPosture()">↺ reset</button>
+    </div>
+
+  </footer>
+
+  <div id="toast"></div>
+
+  <script>
+    let trackingEnabled = true;
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2000);
+    }
+
+    function toggleTracking() {
+      trackingEnabled = !trackingEnabled;
+      fetch('/api/tracking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: trackingEnabled })
+      });
+      const btn   = document.getElementById('tracking-btn');
+      const label = document.getElementById('tracking-label');
+      btn.classList.toggle('active', trackingEnabled);
+      label.textContent = trackingEnabled ? 'tracking on' : 'tracking off';
+      showToast(trackingEnabled ? 'Tracking enabled' : 'Tracking disabled');
+    }
+
+    function setLED(color) {
+      fetch('/api/led', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ color })
+      });
+      document.querySelectorAll('.led-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.color === color)
+      );
+      showToast(`LED → ${color}`);
+    }
+
+    function doMotion(motion) {
+      fetch('/api/motion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ motion })
+      });
+      showToast(`Motion → ${motion}`);
+    }
+
+    function resetPosture() {
+      fetch('/api/reset', { method: 'POST' });
+      showToast('Posture reset');
+    }
+
+    async function fetchDetections() {
+      try {
+        const res  = await fetch('/api/detections');
+        const data = await res.json();
+        const list  = document.getElementById('det-list');
+        const count = document.getElementById('yolo-count');
+        count.textContent = `${data.length} objects`;
+        if (data.length === 0) {
+          list.innerHTML = '<p class="empty-msg">物体が検出されていません</p>';
+          return;
+        }
+        data.sort((a, b) => b.confidence - a.confidence);
+        list.innerHTML = data.map(item => `
+          <div class="det-item">
+            <div>
+              <div class="det-label">${item.label}</div>
+              <div class="conf-bar"><div class="conf-fill" style="width:${item.confidence * 100}%"></div></div>
+            </div>
+            <span class="det-conf">${item.confidence.toFixed(2)}</span>
+          </div>
+        `).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function fetchAzure() {
+      try {
+        const res  = await fetch('/api/azure');
+        const data = await res.json();
+        if (!data || !data.caption) return;
+        const caption = document.getElementById('azure-caption');
+        const tagWrap = document.getElementById('tag-wrap');
+        const status  = document.getElementById('azure-status');
+        caption.textContent = data.caption;
+        caption.classList.remove('empty');
+        status.textContent = 'analyzed';
+        status.classList.add('badge-blue');
+        const highConf = (data.tags || []).filter(t => t.confidence >= 0.7);
+        tagWrap.innerHTML = highConf.map(t => `<span class="tag">${t.name}</span>`).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function fetchState() {
+      try {
+        const res  = await fetch('/api/state');
+        const data = await res.json();
+        const badge = document.getElementById('state-badge');
+        badge.textContent = data.state.toUpperCase();
+        badge.className = 'state-badge state-' + data.state;
+      } catch(e) {}
+    }
+
+    setInterval(fetchDetections, 1000);
+    setInterval(fetchAzure,     2000);
+    setInterval(fetchState,     500);
+    fetchDetections();
+    fetchAzure();
+    fetchState();
+  </script>
+
+</body>
+</html>
