@@ -57,19 +57,32 @@ def get_latest_faces():
         return _latest_faces.copy()
 
 # ========== カメラBループ（物体検出） ==========
+YOLO_INTERVAL = 2.0  # 推論間隔（秒）→ 重ければ1.0に上げる
+
 def camera_env_loop():
     global _latest_env_frame, _latest_detections
     camera_env.start()
+    last_detect = 0.0
+
     while True:
         frame = camera_env.get_frame()
         if frame is None:
             time.sleep(0.01)
             continue
+
+        now = time.time()
+        if now - last_detect < YOLO_INTERVAL:
+            time.sleep(0.01)
+            continue
+
+        last_detect = now
         annotated_frame, detections, changed = detector.detect(frame)
+
         with _detections_lock:
             _latest_detections = detections
         with _env_frame_lock:
             _latest_env_frame = annotated_frame
+
         if changed:
             azure_client.analyze_async(annotated_frame)
 
@@ -168,7 +181,7 @@ def api_state():
 if __name__ == '__main__':
     threading.Thread(target=camera_user_loop, daemon=True).start()
     threading.Thread(target=camera_env_loop,  daemon=True).start()
-    #threading.Thread(target=voice_loop,        daemon=True).start()
+    threading.Thread(target=voice_loop,        daemon=True).start()
     
     # attention_controllerを起動
     attention_controller.start(get_latest_detections, get_latest_faces)
