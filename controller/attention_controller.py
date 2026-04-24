@@ -100,15 +100,17 @@ def _user_is_looking(target: dict, faces: list) -> bool:
 def _in_cooldown() -> bool:
     return time.time() - _last_guide_end < COOLDOWN_SEC
 
+# ========== 除外ラベル ==========
+EXCLUDE_LABELS = {"person"}
 
 # ========== 誘導ループ ==========
-def _guide_loop(target: dict, get_faces):
+def _guide_loop(target: dict, get_faces, get_face_angle):
     global _state, _last_guide_end
 
     cx, cy  = target["center"]
     servos  = image_to_servo_values(cx, cy)
 
-    # 腕だけのサーボ値（頭は初期位置）
+    # 腕のみ（頭は正面）
     arm_only = {
         "Waist_Y":     servos["Waist_Y"],
         "RShoulder_P": servos["RShoulder_P"],
@@ -120,7 +122,7 @@ def _guide_loop(target: dict, get_faces):
         "Head_R":      0,
     }
 
-    # 頭+腕のサーボ値（物体方向）
+    # 頭+腕（物体方向）
     all_servos = {**servos}
 
     start_time = time.time()
@@ -128,7 +130,7 @@ def _guide_loop(target: dict, get_faces):
     # ① 腕を物体方向へ + 発話
     sota.send(servo=arm_only)
     time.sleep(0.5)
-    send_tts(f"{target['label']}を見てください")
+    send_tts("これを見てください")
     time.sleep(0.3)
 
     loop_count = 0
@@ -136,6 +138,7 @@ def _guide_loop(target: dict, get_faces):
         if time.time() - start_time > GUIDE_TIMEOUT_SEC:
             break
 
+        # 成功確認
         faces = get_faces()
         if _user_is_looking(target, faces):
             with _state_lock:
@@ -144,13 +147,14 @@ def _guide_loop(target: dict, get_faces):
             _last_guide_end = time.time()
             return
 
-        # ② 顔を物体方向へ（腕はそのまま）
+        # ② 顔を物体方向へ（腕はそのまま）2秒
         sota.send(servo=all_servos)
-        time.sleep(1.5)
+        time.sleep(2.0)
 
         if time.time() - start_time > GUIDE_TIMEOUT_SEC:
             break
 
+        # 成功確認
         faces = get_faces()
         if _user_is_looking(target, faces):
             with _state_lock:
@@ -159,14 +163,18 @@ def _guide_loop(target: dict, get_faces):
             _last_guide_end = time.time()
             return
 
-        # ③ ユーザの方へ顔を戻す（腕はそのまま）
-        sota.send(servo={**arm_only, "Head_Y": 0, "Head_P": 0})
-        time.sleep(0.5)
+        # ③ ユーザの方へ顔を向ける（カメラAの顔追従角度を使用）2秒
+        user_head_y = get_face_angle()
+        sota.send(servo={
+            **arm_only,
+            "Head_Y": user_head_y,
+            "Head_P": 0,
+        })
+        time.sleep(2.0)
 
         # ④ 発話（2ループに1回）
         if loop_count % 2 == 0:
-            send_tts("こちらです、見てください")
-        time.sleep(0.5)
+            send_tts("これを見てください")
 
         loop_count += 1
 
@@ -180,7 +188,7 @@ def _guide_loop(target: dict, get_faces):
 def _do_success(target: dict):
     sota.send(servo={"Head_Y": 0, "Head_P": 0})
     time.sleep(0.3)
-    send_tts(f"ありがとうございます、{target['label']}ですね")
+    send_tts("ありがとうございます")
     time.sleep(SUCCESS_HOLD_SEC)
     sota.reset_posture()
     with _state_lock:
@@ -189,7 +197,7 @@ def _do_success(target: dict):
 
 
 # ========== メインループ ==========
-def _control_loop(get_detections, get_faces):
+def _control_loop(get_detections, get_faces, get_face_angle):
     global _state, _target, _last_labels
 
     while _running:
@@ -204,11 +212,13 @@ def _control_loop(get_detections, get_faces):
         if _in_cooldown():
             continue
 
-        detections   = get_detections()
+        detections     = get_detections()
+        # personを除外
+        detections     = [d for d in detections if d["label"] not in EXCLUDE_LABELS]
         current_labels = {d["label"] for d in detections}
 
-        changed      = current_labels != _last_labels
-        _last_labels = current_labels
+        changed        = current_labels != _last_labels
+        _last_labels   = current_labels
 
         if changed and detections and current_labels:
             target = max(detections, key=lambda d: d["confidence"])
@@ -217,18 +227,18 @@ def _control_loop(get_detections, get_faces):
                 _target = target
             threading.Thread(
                 target=_guide_loop,
-                args=(target, get_faces),
+                args=(target, get_faces, get_face_angle),
                 daemon=True
             ).start()
 
 
 # ========== 外部インターフェース ==========
-def start(get_detections, get_faces):
+def start(get_detections, get_faces, get_face_angle):
     global _running
     _running = True
     threading.Thread(
         target=_control_loop,
-        args=(get_detections, get_faces),
+        args=(get_detections, get_faces, get_face_angle),
         daemon=True
     ).start()
 

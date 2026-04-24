@@ -26,6 +26,8 @@ _latest_detections = []
 _user_frame_lock   = threading.Lock()
 _env_frame_lock    = threading.Lock()
 _detections_lock   = threading.Lock()
+_latest_face_angle = 0  # ユーザの顔角度（Head_Y値）
+_face_angle_lock   = threading.Lock()
 
 # ========== 共有データへのアクセサ関数 ==========
 # attention_controllerに渡すゲッター関数
@@ -51,10 +53,18 @@ def camera_user_loop():
             _latest_user_frame = frame
         with _faces_lock:
             _latest_faces = faces
+        # 顔角度をHead_Y値として保存
+        if angles is not None:
+            with _face_angle_lock:
+                _latest_face_angle = angles["yaw"]
 
 def get_latest_faces():
     with _faces_lock:
         return _latest_faces.copy()
+
+def get_latest_face_angle():
+    with _face_angle_lock:
+        return _latest_face_angle
 
 # ========== カメラBループ（物体検出） ==========
 YOLO_INTERVAL = 10.0  # 推論間隔（秒)
@@ -184,6 +194,6 @@ if __name__ == '__main__':
     #threading.Thread(target=voice_loop,        daemon=True).start()
     
     # attention_controllerを起動
-    attention_controller.start(get_latest_detections, get_latest_faces)
+    attention_controller.start(get_latest_detections, get_latest_faces, get_latest_face_angle)
 
     app.run(host='0.0.0.0', port=config.FLASK_PORT, debug=False, threaded=True)
