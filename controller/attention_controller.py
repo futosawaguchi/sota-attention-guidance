@@ -17,7 +17,7 @@ GUIDE_TIMEOUT_SEC  = 15.0
 SUCCESS_HOLD_SEC   =  2.0
 FACE_ANGLE_THRESH  = 40.0
 CHECK_INTERVAL_SEC =  0.2
-COOLDOWN_SEC       = 30.0
+COOLDOWN_SEC       = 15.0
 
 # ========== キャリブレーションデータ読み込み ==========
 with open("angle_calibration.json", "r") as f:
@@ -189,6 +189,7 @@ def _guide_loop(target: dict, get_faces, get_face_angle):
         _state = STATE_IDLE
     _last_guide_end = time.time()
     sota.reset_posture()
+    _last_guide_end = time.time()
 
 
 def _do_success(target: dict):
