@@ -1,8 +1,10 @@
 import time
 import threading
+import json
+import math
+import numpy as np
 import config
 from sota import controller as sota
-#from voice import assistantd 
 from voice.assistant import send_tts
 
 # ========== 状態定義 ==========
@@ -17,90 +19,123 @@ FACE_ANGLE_THRESH  = 40.0
 CHECK_INTERVAL_SEC =  0.2
 COOLDOWN_SEC       = 30.0
 
-# ========== カメラB画角設定 ==========
-CAM_B_FOV_H = 60.0
-CAM_B_FOV_V = 45.0
-CAM_B_W     = 640
-CAM_B_H     = 480
+# ========== キャリブレーションデータ読み込み ==========
+with open("angle_calibration.json", "r") as f:
+    _calib_points = json.load(f)
+
+# numpy配列に変換
+_pts     = np.array([[p["img_x"], p["img_y"]] for p in _calib_points], dtype=float)
+_SERVO_KEYS = ["Waist_Y","RShoulder_P","RElbow_P","LShoulder_P","LElbow_P","Head_Y","Head_P","Head_R"]
+_vals    = np.array([[p[k] for k in _SERVO_KEYS] for p in _calib_points], dtype=float)
 
 # ========== 内部状態 ==========
-_state         = STATE_IDLE
-_state_lock    = threading.Lock()
-_target        = None
+_state          = STATE_IDLE
+_state_lock     = threading.Lock()
+_target         = None
 _last_guide_end = 0.0
-_running       = False
-_last_labels   = set()
+_running        = False
+_last_labels    = set()
 
-# ========== 座標変換 ==========
-def image_to_sota_angles(cx: int, cy: int) -> tuple[int, int]:
-    rel_x =  (cx - CAM_B_W / 2) / CAM_B_W
-    rel_y =  (cy - CAM_B_H / 2) / CAM_B_H
-    yaw   = int( rel_x * CAM_B_FOV_H * (1400 / (CAM_B_FOV_H / 2)))
-    pitch = int( rel_y * CAM_B_FOV_V * ( 100 / (CAM_B_FOV_V / 2)))
-    yaw   = max(-1400, min(1400, yaw))
-    pitch = max( -290, min( 110, pitch))
-    return yaw, pitch
+# ========== 補間：画像座標 → サーボ値 ==========
+def image_to_servo_values(img_x: float, img_y: float) -> dict:
+    """
+    実測キャリブレーションデータから逆距離加重補間でサーボ値を計算する
+    """
+    query = np.array([img_x, img_y], dtype=float)
 
-def calc_arm(yaw: int) -> dict:
-    """yaw方向に応じて腕サーボ値を計算"""
-    if yaw >= 0:
-        shoulder = max(-1400, min(800, -int(abs(yaw) * 0.6)))
-        return {
-            "RShoulder_P": shoulder,
-            "RElbow_P":    -200,
-            "LShoulder_P":  900,
-            "LElbow_P":     0,
+    # 各ポイントとの距離を計算
+    dists = np.linalg.norm(_pts - query, axis=1)
+
+    # 完全一致（距離0）の場合はそのまま返す
+    if np.min(dists) < 1e-6:
+        idx = np.argmin(dists)
+        return {k: int(_vals[idx][i]) for i, k in enumerate(_SERVO_KEYS)}
+
+    # 逆距離加重（IDW）補間
+    weights = 1.0 / (dists ** 2)
+    weights /= weights.sum()
+
+    interpolated = np.dot(weights, _vals)
+
+    result = {}
+    for i, k in enumerate(_SERVO_KEYS):
+        limits = {
+            "Waist_Y":     (-1200, 1200),
+            "RShoulder_P": (-1400,  800),
+            "RElbow_P":    ( -900,  650),
+            "LShoulder_P": ( -800, 1400),
+            "LElbow_P":    ( -650,  900),
+            "Head_Y":      (-1400, 1400),
+            "Head_P":      ( -290,  110),
+            "Head_R":      ( -300,  350),
         }
-    else:
-        shoulder = max(-800, min(1400, int(abs(yaw) * 0.6)))
-        return {
-            "LShoulder_P": shoulder,
-            "LElbow_P":     200,
-            "RShoulder_P": -900,
-            "RElbow_P":     0,
-        }
+        lo, hi = limits[k]
+        result[k] = int(max(lo, min(hi, round(interpolated[i]))))
+
+    print(f"[Interp] img=({img_x:.0f},{img_y:.0f}) "
+          f"Head_Y={result['Head_Y']} Head_P={result['Head_P']} "
+          f"LShoulder={result['LShoulder_P']} RShoulder={result['RShoulder_P']}")
+
+    return result
+
 
 # ========== 視線判定 ==========
 def _user_is_looking(target: dict, faces: list) -> bool:
     if not faces:
         return False
     x, y, fw, fh = max(faces, key=lambda f: f[2] * f[3])
-    face_cx  = x + fw // 2
-    cam_a_w  = 640
-    dx       = face_cx - cam_a_w // 2
-    face_angle  = (dx / (cam_a_w / 2)) * 30.0
-    cx, cy      = target["center"]
-    sota_yaw, _ = image_to_sota_angles(cx, cy)
-    target_angle = sota_yaw / (1400 / 30.0)
+    face_cx = x + fw // 2
+    cam_a_w = 640
+    dx = face_cx - cam_a_w // 2
+    face_angle = (dx / (cam_a_w / 2)) * 30.0
+
+    cx, cy = target["center"]
+    servos = image_to_servo_values(cx, cy)
+    target_angle = servos["Head_Y"] / (1400 / 30.0)
+
     return abs(face_angle - target_angle) < FACE_ANGLE_THRESH
+
 
 # ========== クールダウン判定 ==========
 def _in_cooldown() -> bool:
     return time.time() - _last_guide_end < COOLDOWN_SEC
 
+
 # ========== 誘導ループ ==========
 def _guide_loop(target: dict, get_faces):
     global _state, _last_guide_end
 
-    cx, cy    = target["center"]
-    yaw, pitch = image_to_sota_angles(cx, cy)
-    arm        = calc_arm(yaw)
+    cx, cy  = target["center"]
+    servos  = image_to_servo_values(cx, cy)
+
+    # 腕だけのサーボ値（頭は初期位置）
+    arm_only = {
+        "Waist_Y":     servos["Waist_Y"],
+        "RShoulder_P": servos["RShoulder_P"],
+        "RElbow_P":    servos["RElbow_P"],
+        "LShoulder_P": servos["LShoulder_P"],
+        "LElbow_P":    servos["LElbow_P"],
+        "Head_Y":      0,
+        "Head_P":      0,
+        "Head_R":      0,
+    }
+
+    # 頭+腕のサーボ値（物体方向）
+    all_servos = {**servos}
 
     start_time = time.time()
 
     # ① 腕を物体方向へ + 発話
-    sota.send(servo={**arm})
+    sota.send(servo=arm_only)
     time.sleep(0.5)
     send_tts(f"{target['label']}を見てください")
     time.sleep(0.3)
 
     loop_count = 0
     while True:
-        # タイムアウト確認
         if time.time() - start_time > GUIDE_TIMEOUT_SEC:
             break
 
-        # 成功確認
         faces = get_faces()
         if _user_is_looking(target, faces):
             with _state_lock:
@@ -110,16 +145,12 @@ def _guide_loop(target: dict, get_faces):
             return
 
         # ② 顔を物体方向へ（腕はそのまま）
-        sota.send(servo={
-            "Head_Y": yaw,
-            "Head_P": pitch,
-            **arm,
-        })
+        sota.send(servo=all_servos)
         time.sleep(1.5)
 
-        # タイムアウト・成功確認
         if time.time() - start_time > GUIDE_TIMEOUT_SEC:
             break
+
         faces = get_faces()
         if _user_is_looking(target, faces):
             with _state_lock:
@@ -129,11 +160,7 @@ def _guide_loop(target: dict, get_faces):
             return
 
         # ③ ユーザの方へ顔を戻す（腕はそのまま）
-        sota.send(servo={
-            "Head_Y": 0,
-            "Head_P": 0,
-            **arm,
-        })
+        sota.send(servo={**arm_only, "Head_Y": 0, "Head_P": 0})
         time.sleep(0.5)
 
         # ④ 発話（2ループに1回）
@@ -143,14 +170,14 @@ def _guide_loop(target: dict, get_faces):
 
         loop_count += 1
 
-    # タイムアウト処理
+    # タイムアウト
     with _state_lock:
         _state = STATE_IDLE
     _last_guide_end = time.time()
     sota.reset_posture()
 
+
 def _do_success(target: dict):
-    """成功時の動作"""
     sota.send(servo={"Head_Y": 0, "Head_P": 0})
     time.sleep(0.3)
     send_tts(f"ありがとうございます、{target['label']}ですね")
@@ -159,6 +186,7 @@ def _do_success(target: dict):
     with _state_lock:
         global _state
         _state = STATE_IDLE
+
 
 # ========== メインループ ==========
 def _control_loop(get_detections, get_faces):
@@ -176,14 +204,13 @@ def _control_loop(get_detections, get_faces):
         if _in_cooldown():
             continue
 
-        detections = get_detections()
+        detections   = get_detections()
         current_labels = {d["label"] for d in detections}
 
-        # 新しい物体が来たときだけ発火
-        changed = current_labels != _last_labels
+        changed      = current_labels != _last_labels
         _last_labels = current_labels
 
-        if changed and detections:
+        if changed and detections and current_labels:
             target = max(detections, key=lambda d: d["confidence"])
             with _state_lock:
                 _state  = STATE_GUIDING
@@ -193,6 +220,7 @@ def _control_loop(get_detections, get_faces):
                 args=(target, get_faces),
                 daemon=True
             ).start()
+
 
 # ========== 外部インターフェース ==========
 def start(get_detections, get_faces):

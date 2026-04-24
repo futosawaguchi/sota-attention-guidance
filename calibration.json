@@ -1,0 +1,10 @@
+{
+  "sota_px": [953, 154],
+  "cam_b_w": 1920,
+  "cam_b_h": 1080,
+  "cam_b_height_cm": 115,
+  "sota_head_height_cm": 104,
+  "object_height_cm": 78,
+  "cam_to_sota_dist_cm": 60,
+  "cam_to_sota_angle_deg": 45
+}
