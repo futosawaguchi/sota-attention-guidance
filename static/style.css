@@ -456,3 +456,102 @@ footer {
   .pose-btns { gap: 4px; }
   .pose-btn  { font-size: 11px; padding: 5px 10px; }
 }
+
+/* ========== Guidance Bar ========== */
+.guidance-bar {
+  background: #fff;
+  border: 0.5px solid #e4e3e0;
+  border-radius: 12px;
+  padding: 20px 24px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: center;
+}
+
+.guidance-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.guidance-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.guidance-dot.idle    { background: #ccc; }
+.guidance-dot.guiding { background: #EF9F27; animation: pulse 1s infinite; }
+.guidance-dot.success { background: #22c55e; }
+
+.guidance-state-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.guidance-state-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #aaa;
+}
+
+.guidance-state-value {
+  font-size: 18px;
+  font-weight: 500;
+  color: #1a1a18;
+}
+
+.guidance-target {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-left: 0.5px solid #e4e3e0;
+  padding-left: 20px;
+}
+
+.guidance-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #aaa;
+}
+
+.guidance-object-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.guidance-object {
+  font-family: 'DM Mono', monospace;
+  font-size: 22px;
+  font-weight: 500;
+  color: #1a1a18;
+}
+
+.guidance-conf {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  color: #aaa;
+  background: #f4f4f2;
+  padding: 3px 10px;
+  border-radius: 99px;
+}
+
+@media (max-width: 768px) {
+  .guidance-bar {
+    grid-template-columns: 1fr;
+  }
+  .guidance-target {
+    border-left: none;
+    border-top: 0.5px solid #e4e3e0;
+    padding-left: 0;
+    padding-top: 16px;
+  }
+}

@@ -38,6 +38,23 @@
       </div>
     </section>
 
+    <section class="guidance-bar" id="guidance-bar">
+      <div class="guidance-state">
+        <div class="guidance-dot idle" id="guidance-dot"></div>
+        <div class="guidance-state-text">
+          <span class="guidance-state-label">Status</span>
+          <span class="guidance-state-value" id="guidance-state-text">待機中</span>
+        </div>
+      </div>
+      <div class="guidance-target" id="guidance-target" style="display:none;">
+        <span class="guidance-label">誘導対象</span>
+        <div class="guidance-object-row">
+          <span class="guidance-object" id="guidance-object">-</span>
+          <span class="guidance-conf" id="guidance-conf"></span>
+        </div>
+      </div>
+    </section>
+
     <section class="panels">
 
       <div class="panel">
@@ -200,10 +217,41 @@
       try {
         const res  = await fetch('/api/state');
         const data = await res.json();
+        const state = data.state;
+        const target = data.target;
+
+        // state badge（ヘッダー）
         const badge = document.getElementById('state-badge');
-        badge.textContent = data.state.toUpperCase();
-        badge.className = 'state-badge state-' + data.state;
-      } catch(e) {}
+        badge.textContent = state.toUpperCase();
+        badge.className = 'state-badge state-' + state;
+
+        // guidance bar
+        const dot       = document.getElementById('guidance-dot');
+        const stateText = document.getElementById('guidance-state-text');
+        const targetDiv = document.getElementById('guidance-target');
+        const objSpan   = document.getElementById('guidance-object');
+        const confSpan  = document.getElementById('guidance-conf');
+
+        dot.className = 'guidance-dot ' + state;
+
+        if (state === 'idle') {
+          stateText.textContent = '待機中';
+          targetDiv.style.display = 'none';
+        } else if (state === 'guiding') {
+          stateText.textContent = '注意誘導中...';
+          if (target) {
+            targetDiv.style.display = 'flex';
+            objSpan.textContent  = target.label || '-';
+            confSpan.textContent = target.confidence
+              ? `${(target.confidence * 100).toFixed(0)}%`
+              : '';
+          }
+        } else if (state === 'success') {
+          stateText.textContent = '✓ 成功';
+          targetDiv.style.display = target ? 'flex' : 'none';
+        }
+
+      } catch(e) { console.error(e); }
     }
 
     setInterval(fetchDetections, 1000);
