@@ -145,7 +145,12 @@ def play_tts(text: str):
     resp = requests.post(
         TTS_URL,
         headers={"api-key": API_KEY, "Content-Type": "application/json"},
-        json={"model": "gpt-4o-mini-tts", "input": text, "voice": "nova"},
+        json={
+            "model": "gpt-4o-mini-tts",
+            "input": text,
+            "voice": "nova",
+            "instructions": "落ち着いたトーンで、一定のテンションで話してください。感情の起伏をつけず、ナレーターのように淡々と読んでください。"
+        },
         timeout=30
     )
     if resp.status_code != 200:
