@@ -30,7 +30,7 @@ class Detector:
             confidence = float(box.conf)
             current_labels.add(label)
             x1, y1, x2, y2 = map(int, box.xyxy[0])
-            cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+            cx, cy = (x1 + x2) // 2, y2
             detections.append({
                 "label":      label,
                 "confidence": confidence,

@@ -35,6 +35,8 @@ _target         = None
 _last_guide_end = 0.0
 _running        = False
 _last_labels    = set()
+_guided_labels  = set()   # 誘導済みラベル
+_guided_lock    = threading.Lock()
 
 # ========== 補間：画像座標 → サーボ値 ==========
 def image_to_servo_values(img_x: float, img_y: float) -> dict:
@@ -177,6 +179,10 @@ def _guide_loop(target: dict, get_faces, get_face_angle):
             send_tts("これを見てください")
 
         loop_count += 1
+    
+    # タイムアウト処理の前に誘導済みリストに追加
+    with _guided_lock:
+        _guided_labels.add(target["label"])
 
     # タイムアウト
     with _state_lock:
@@ -191,6 +197,10 @@ def _do_success(target: dict):
     send_tts("ありがとうございます")
     time.sleep(SUCCESS_HOLD_SEC)
     sota.reset_posture()
+    
+    # 成功時も誘導済みリストに追加
+    with _guided_lock:
+        _guided_labels.add(target["label"])
     with _state_lock:
         global _state
         _state = STATE_IDLE
@@ -198,7 +208,7 @@ def _do_success(target: dict):
 
 # ========== メインループ ==========
 def _control_loop(get_detections, get_faces, get_face_angle):
-    global _state, _target, _last_labels
+    global _state, _target, _last_labels, _guided_labels
 
     while _running:
         time.sleep(CHECK_INTERVAL_SEC)
@@ -213,23 +223,38 @@ def _control_loop(get_detections, get_faces, get_face_angle):
             continue
 
         detections     = get_detections()
-        # personを除外
         detections     = [d for d in detections if d["label"] not in EXCLUDE_LABELS]
         current_labels = {d["label"] for d in detections}
 
         changed        = current_labels != _last_labels
         _last_labels   = current_labels
 
-        if changed and detections and current_labels:
-            target = max(detections, key=lambda d: d["confidence"])
-            with _state_lock:
-                _state  = STATE_GUIDING
-                _target = target
-            threading.Thread(
-                target=_guide_loop,
-                args=(target, get_faces, get_face_angle),
-                daemon=True
-            ).start()
+        # 新しい物体が追加されたら誘導済みリストをリセット
+        if changed:
+            with _guided_lock:
+                _guided_labels = set()
+
+        # 未誘導の物体だけ対象にする
+        with _guided_lock:
+            guided = _guided_labels.copy()
+
+        candidates = [d for d in detections if d["label"] not in guided]
+
+        if not candidates:
+            continue
+
+        # confidence最高のものを選ぶ
+        target = max(candidates, key=lambda d: d["confidence"])
+
+        with _state_lock:
+            _state  = STATE_GUIDING
+            _target = target
+
+        threading.Thread(
+            target=_guide_loop,
+            args=(target, get_faces, get_face_angle),
+            daemon=True
+        ).start()
 
 
 # ========== 外部インターフェース ==========
