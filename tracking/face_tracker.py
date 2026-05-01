@@ -4,6 +4,8 @@ import threading
 import numpy as np
 import config
 from sota import controller
+from tracking.face_detector import FaceDetector
+_face_detector = FaceDetector()
 
 # ========== 状態管理 ==========
 _tracking_enabled = True
@@ -57,6 +59,8 @@ def process_frame(frame: np.ndarray, auto_send: bool = True):
     cv2.putText(frame, f"dx:{dx_disp} dy:{dy_disp}", (x, y - 10),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (80, 180, 80), 1)
 
+    _face_detector.process(frame)
+    
     if not _tracking_enabled:
         return frame, list(faces), None
 

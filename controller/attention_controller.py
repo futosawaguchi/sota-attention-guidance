@@ -6,6 +6,7 @@ import numpy as np
 import config
 from sota import controller as sota
 from voice.assistant import send_tts
+from tracking import face_tracker
 
 # ========== 状態定義 ==========
 STATE_IDLE    = "idle"
@@ -82,20 +83,19 @@ def image_to_servo_values(img_x: float, img_y: float) -> dict:
 
 
 # ========== 視線判定 ==========
-def _user_is_looking(target: dict, faces: list) -> bool:
-    if not faces:
-        return False
-    x, y, fw, fh = max(faces, key=lambda f: f[2] * f[3])
-    face_cx = x + fw // 2
-    cam_a_w = 640
-    dx = face_cx - cam_a_w // 2
-    face_angle = (dx / (cam_a_w / 2)) * 30.0
+def _user_is_looking(target: dict) -> bool:
+    # MediaPipe FaceDetectorからyaw角度を取得
+    user_yaw = face_tracker._face_detector.get_latest_yaw()
 
-    cx, cy = target["center"]
-    servos = image_to_servo_values(cx, cy)
-    target_angle = servos["Head_Y"] / (1400 / 30.0)
+    cx, cy      = target["center"]
+    servos      = image_to_servo_values(cx, cy)
+    sota_head_y = servos["Head_Y"]
+    target_yaw  = sota_head_y / (1400 / 70.0)
 
-    return abs(face_angle - target_angle) < FACE_ANGLE_THRESH
+    diff = abs(user_yaw - target_yaw)
+    print(f"[Looking] user_yaw={user_yaw:.1f} target_yaw={target_yaw:.1f} diff={diff:.1f}")
+
+    return diff < FACE_ANGLE_THRESH
 
 
 # ========== クールダウン判定 ==========
@@ -142,7 +142,7 @@ def _guide_loop(target: dict, get_faces, get_face_angle):
 
         # 成功確認
         faces = get_faces()
-        if _user_is_looking(target, faces):
+        if _user_is_looking(target):
             with _state_lock:
                 _state = STATE_SUCCESS
             _do_success(target)
@@ -158,7 +158,7 @@ def _guide_loop(target: dict, get_faces, get_face_angle):
 
         # 成功確認
         faces = get_faces()
-        if _user_is_looking(target, faces):
+        if _user_is_looking(target):
             with _state_lock:
                 _state = STATE_SUCCESS
             _do_success(target)
