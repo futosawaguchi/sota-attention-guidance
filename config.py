@@ -52,3 +52,7 @@ HAND_MODEL_URL  = "https://storage.googleapis.com/mediapipe-models/hand_landmark
 HAND_MODEL_PATH = "hand_landmarker.task"
 HAND_DETECTION_CONFIDENCE = 0.7
 HAND_TRACKING_CONFIDENCE  = 0.5
+
+# ========== MediaPipe Hand ==========
+MAX_NUM_HANDS             = 1
+DEFAULT_HAND_LANDMARK_VISIBLE = True
