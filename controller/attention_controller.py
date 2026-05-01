@@ -16,7 +16,7 @@ STATE_SUCCESS = "success"
 # ========== 設定 ==========
 GUIDE_TIMEOUT_SEC  = 15.0
 SUCCESS_HOLD_SEC   =  2.0
-FACE_ANGLE_THRESH  = 40.0
+FACE_ANGLE_THRESH  = 15.0
 CHECK_INTERVAL_SEC =  0.2
 COOLDOWN_SEC       = 15.0
 
@@ -141,13 +141,13 @@ def _guide_loop(target: dict, get_faces, get_face_angle):
             break
 
         # 成功確認
-        faces = get_faces()
-        if _user_is_looking(target):
-            with _state_lock:
-                _state = STATE_SUCCESS
-            _do_success(target)
-            _last_guide_end = time.time()
-            return
+        # faces = get_faces()
+        # if _user_is_looking(target):
+        #     with _state_lock:
+        #         _state = STATE_SUCCESS
+        #     _do_success(target)
+        #     _last_guide_end = time.time()
+        #     return
 
         # ② 顔を物体方向へ（腕はそのまま）2秒
         sota.send(servo=all_servos)
@@ -155,6 +155,15 @@ def _guide_loop(target: dict, get_faces, get_face_angle):
 
         if time.time() - start_time > GUIDE_TIMEOUT_SEC:
             break
+        
+        # ③ ユーザの方へ顔を向ける（カメラAの顔追従角度を使用）2秒
+        user_head_y = get_face_angle()
+        sota.send(servo={
+            **arm_only,
+            "Head_Y": user_head_y,
+            "Head_P": 0,
+        })
+        time.sleep(2.0)
 
         # 成功確認
         faces = get_faces()
@@ -164,15 +173,6 @@ def _guide_loop(target: dict, get_faces, get_face_angle):
             _do_success(target)
             _last_guide_end = time.time()
             return
-
-        # ③ ユーザの方へ顔を向ける（カメラAの顔追従角度を使用）2秒
-        user_head_y = get_face_angle()
-        sota.send(servo={
-            **arm_only,
-            "Head_Y": user_head_y,
-            "Head_P": 0,
-        })
-        time.sleep(2.0)
 
         # ④ 発話（2ループに1回）
         if loop_count % 2 == 0:
