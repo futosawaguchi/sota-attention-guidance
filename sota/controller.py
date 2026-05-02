@@ -1,6 +1,7 @@
 import json
 import socket
 from config import SOTA_IP, SOTA_PORT
+import time
 
 # ========== UDP ソケット初期化 ==========
 _sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -70,3 +71,43 @@ def reset_posture():
         "Head_R":       0,
     }
     send()
+    
+def smooth_send(
+    start_servo: dict,
+    end_servo:   dict,
+    duration_sec: float,
+    steps: int = 20
+):
+    """
+    startからendまでをduration_sec秒かけてsteps回に分けて送信する
+    イージング（ease in-out）で自然な動きにする
+
+    Parameters
+    ----------
+    start_servo  : 開始サーボ値の辞書
+    end_servo    : 目標サーボ値の辞書
+    duration_sec : 移動にかける時間（秒）
+    steps        : 分割数（多いほど滑らか・デフォルト20）
+    """
+    interval = duration_sec / steps
+
+    for i in range(1, steps + 1):
+        # ease in-out: 最初と最後はゆっくり、中間は速く
+        t_linear = i / steps
+        t = t_linear * t_linear * (3 - 2 * t_linear)  # smoothstep
+
+        interpolated = {}
+        for key in end_servo:
+            start_val = start_servo.get(key, _current_posture.get(key, 0))
+            end_val   = end_servo[key]
+            interpolated[key] = int(start_val + (end_val - start_val) * t)
+
+        _sock.sendto(
+            json.dumps(interpolated).encode("utf-8"),
+            _serv_address
+        )
+        time.sleep(interval)
+
+    # 最終値を_current_postureに反映
+    global _current_posture
+    _current_posture.update(end_servo)

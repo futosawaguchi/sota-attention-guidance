@@ -7,6 +7,7 @@ import config
 from sota import controller as sota
 from voice.assistant import send_tts
 from tracking import face_tracker
+from sota.controller import smooth_send as sota_smooth
 
 # ========== 状態定義 ==========
 STATE_IDLE    = "idle"
@@ -130,8 +131,15 @@ def _guide_loop(target: dict, get_faces, get_face_angle):
     start_time = time.time()
 
     # ① 腕を物体方向へ + 発話
-    sota.send(servo=arm_only)
-    time.sleep(0.5)
+    sota_smooth(
+        start_servo={"Head_Y": 0, "Head_P": 0, "Head_R": 0,
+                    "RShoulder_P": -900, "RElbow_P": 0,
+                    "LShoulder_P": 900,  "LElbow_P": 0,
+                    "Waist_Y": 0},
+        end_servo=arm_only,
+        duration_sec=1.5
+    )
+    time.sleep(0.3)
     send_tts("これを見てください")
     time.sleep(0.3)
 
@@ -140,17 +148,12 @@ def _guide_loop(target: dict, get_faces, get_face_angle):
         if time.time() - start_time > GUIDE_TIMEOUT_SEC:
             break
 
-        # 成功確認
-        # faces = get_faces()
-        # if _user_is_looking(target):
-        #     with _state_lock:
-        #         _state = STATE_SUCCESS
-        #     _do_success(target)
-        #     _last_guide_end = time.time()
-        #     return
-
         # ② 顔を物体方向へ（腕はそのまま）2秒
-        sota.send(servo=all_servos)
+        sota_smooth(
+            start_servo={**arm_only, "Head_Y": 0, "Head_P": 0},
+            end_servo=all_servos,
+            duration_sec=1.5
+        )
         time.sleep(2.0)
 
         if time.time() - start_time > GUIDE_TIMEOUT_SEC:
@@ -158,11 +161,11 @@ def _guide_loop(target: dict, get_faces, get_face_angle):
         
         # ③ ユーザの方へ顔を向ける（カメラAの顔追従角度を使用）2秒
         user_head_y = get_face_angle()
-        sota.send(servo={
-            **arm_only,
-            "Head_Y": user_head_y,
-            "Head_P": 0,
-        })
+        sota_smooth(
+            start_servo=all_servos,
+            end_servo={**arm_only, "Head_Y": user_head_y, "Head_P": 0},
+            duration_sec=1.5
+        )
         time.sleep(2.0)
 
         # 成功確認
@@ -193,7 +196,11 @@ def _guide_loop(target: dict, get_faces, get_face_angle):
 
 
 def _do_success(target: dict):
-    sota.send(servo={"Head_Y": 0, "Head_P": 0})
+    sota_smooth(
+        start_servo=sota._current_posture.copy(),
+        end_servo={"Head_Y": 0, "Head_P": 0},
+        duration_sec=1.0
+    )
     time.sleep(0.3)
     send_tts("ありがとうございます")
     time.sleep(SUCCESS_HOLD_SEC)
