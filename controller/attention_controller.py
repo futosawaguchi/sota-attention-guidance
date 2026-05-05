@@ -131,14 +131,7 @@ def _guide_loop(target: dict, get_faces, get_face_angle):
     start_time = time.time()
 
     # ① 腕を物体方向へ + 発話
-    sota_smooth(
-        start_servo={"Head_Y": 0, "Head_P": 0, "Head_R": 0,
-                    "RShoulder_P": -900, "RElbow_P": 0,
-                    "LShoulder_P": 900,  "LElbow_P": 0,
-                    "Waist_Y": 0},
-        end_servo=arm_only,
-        duration_sec=1.5
-    )
+    sota.send(servo=arm_only)
     time.sleep(0.3)
     send_tts("これを見てください")
     time.sleep(0.3)

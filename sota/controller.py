@@ -2,10 +2,13 @@ import json
 import socket
 from config import SOTA_IP, SOTA_PORT
 import time
+import threading
 
 # ========== UDP ソケット初期化 ==========
 _sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 _serv_address = (SOTA_IP, SOTA_PORT)
+
+_send_lock = threading.Lock()
 
 # ========== 現在のサーボ値を保持 ==========
 _current_posture = {
@@ -40,22 +43,23 @@ def send(servo=None, led=None, motion=None):
     Head_R       (首 傾き):    -300 〜  350
     """
     global _current_posture
-    pos = _current_posture.copy()
+    with _send_lock:
+        pos = _current_posture.copy()
 
-    if servo:
-        pos.update(servo)
-        _current_posture.update(servo)
+        if servo:
+            pos.update(servo)
+            _current_posture.update(servo)
 
-    if led:
-        pos["LED"] = led
+        if led:
+            pos["LED"] = led
 
-    if motion:
-        pos["Motion"] = motion
+        if motion:
+            pos["Motion"] = motion
 
-    try:
-        _sock.sendto(json.dumps(pos).encode("utf-8"), _serv_address)
-    except Exception as e:
-        print(f"[controller] UDP送信エラー: {e}")
+        try:
+            _sock.sendto(json.dumps(pos).encode("utf-8"), _serv_address)
+        except Exception as e:
+            print(f"[controller] UDP送信エラー: {e}")
 
 def reset_posture():
     """初期姿勢に戻す"""
@@ -89,25 +93,26 @@ def smooth_send(
     duration_sec : 移動にかける時間（秒）
     steps        : 分割数（多いほど滑らか・デフォルト20）
     """
-    interval = duration_sec / steps
-
-    for i in range(1, steps + 1):
-        # ease in-out: 最初と最後はゆっくり、中間は速く
-        t_linear = i / steps
-        t = t_linear * t_linear * (3 - 2 * t_linear)  # smoothstep
-
-        interpolated = {}
-        for key in end_servo:
-            start_val = start_servo.get(key, _current_posture.get(key, 0))
-            end_val   = end_servo[key]
-            interpolated[key] = int(start_val + (end_val - start_val) * t)
-
-        _sock.sendto(
-            json.dumps(interpolated).encode("utf-8"),
-            _serv_address
-        )
-        time.sleep(interval)
-
-    # 最終値を_current_postureに反映
     global _current_posture
-    _current_posture.update(end_servo)
+    with _send_lock:
+        interval = duration_sec / steps
+
+        for i in range(1, steps + 1):
+            # ease in-out: 最初と最後はゆっくり、中間は速く
+            t_linear = i / steps
+            t = t_linear * t_linear * (3 - 2 * t_linear)  # smoothstep
+
+            interpolated = {}
+            for key in end_servo:
+                start_val = start_servo.get(key, _current_posture.get(key, 0))
+                end_val   = end_servo[key]
+                interpolated[key] = int(start_val + (end_val - start_val) * t)
+
+            _sock.sendto(
+                json.dumps(interpolated).encode("utf-8"),
+                _serv_address
+            )
+            time.sleep(interval)
+
+        # 最終値を_current_postureに反映
+        _current_posture.update(end_servo)
