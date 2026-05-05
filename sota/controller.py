@@ -80,7 +80,7 @@ def smooth_send(
     start_servo: dict,
     end_servo:   dict,
     duration_sec: float,
-    steps: int = 20
+    steps: int = 10
 ):
     """
     startからendまでをduration_sec秒かけてsteps回に分けて送信する

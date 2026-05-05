@@ -145,7 +145,7 @@ def _guide_loop(target: dict, get_faces, get_face_angle):
         sota_smooth(
             start_servo={**arm_only, "Head_Y": 0, "Head_P": 0},
             end_servo=all_servos,
-            duration_sec=1.5
+            duration_sec=1.0
         )
         time.sleep(2.0)
 
@@ -156,7 +156,7 @@ def _guide_loop(target: dict, get_faces, get_face_angle):
         sota_smooth(
             start_servo=all_servos,
             end_servo={**arm_only, "Head_Y": user_head_y, "Head_P": 0},
-            duration_sec=1.5
+            duration_sec=1.0
         )
         time.sleep(2.0)
 
