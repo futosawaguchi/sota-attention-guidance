@@ -40,6 +40,36 @@ _last_labels    = set()
 _guided_labels  = set()   # 誘導済みラベル
 _guided_lock    = threading.Lock()
 
+
+# ========== ラベル日本語変換 ==========
+LABEL_JA = {
+    "bottle":      "ボトル",
+    "cup":         "カップ",
+    "book":        "本",
+    "cell phone":  "スマートフォン",
+    "laptop":      "パソコン",
+    "keyboard":    "キーボード",
+    "mouse":       "マウス",
+    "scissors":    "ハサミ",
+    "pen":         "ペン",
+    "clock":       "時計",
+    "vase":        "花瓶",
+    "bowl":        "ボウル",
+    "banana":      "バナナ",
+    "apple":       "リンゴ",
+    "orange":      "オレンジ",
+    "sandwich":    "サンドイッチ",
+    "chair":       "椅子",
+    "remote":      "リモコン",
+    "backpack":    "バッグ",
+    "umbrella":    "傘",
+    "tape":        "テープ",
+}
+
+def _label_to_ja(label: str) -> str:
+    """YOLOラベルを日本語に変換する（未登録はそのまま返す）"""
+    return LABEL_JA.get(label, label)
+
 # ========== 補間：画像座標 → サーボ値 ==========
 def image_to_servo_values(img_x: float, img_y: float) -> dict:
     """
@@ -178,6 +208,8 @@ def _guide_loop(target: dict, get_faces, get_face_angle):
     # タイムアウト処理の前に誘導済みリストに追加
     with _guided_lock:
         _guided_labels.add(target["label"])
+    label_ja = _label_to_ja(target["label"])
+    send_tts(f"こちらの{label_ja}を確認されませんでした。")
 
     # タイムアウト
     with _state_lock:
@@ -194,7 +226,8 @@ def _do_success(target: dict):
         duration_sec=1.0
     )
     time.sleep(0.3)
-    send_tts("ありがとうございます")
+    label_ja = _label_to_ja(target["label"])
+    send_tts(f"ありがとうございます。こちらが{label_ja}でした。")
     time.sleep(SUCCESS_HOLD_SEC)
     sota.reset_posture()
     
