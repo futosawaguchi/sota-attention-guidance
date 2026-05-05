@@ -15,7 +15,7 @@ STATE_GUIDING = "guiding"
 STATE_SUCCESS = "success"
 
 # ========== 設定 ==========
-GUIDE_TIMEOUT_SEC  = 15.0
+GUIDE_TIMEOUT_SEC  = 20.0
 SUCCESS_HOLD_SEC   =  2.0
 FACE_ANGLE_THRESH  = 15.0
 CHECK_INTERVAL_SEC =  0.2
@@ -104,7 +104,7 @@ def _in_cooldown() -> bool:
     return time.time() - _last_guide_end < COOLDOWN_SEC
 
 # ========== 除外ラベル ==========
-EXCLUDE_LABELS = {"person"}
+EXCLUDE_LABELS = {"person", "tv"}
 
 # ========== 誘導ループ ==========
 def _guide_loop(target: dict, get_faces, get_face_angle):
