@@ -55,6 +55,29 @@
       </div>
     </section>
 
+    <!-- 顔の向きパネル -->
+    <section class="face-orientation-bar" id="face-orientation-bar">
+      <div class="fo-item">
+        <span class="fo-label">USER YAW</span>
+        <span class="fo-value" id="fo-user-yaw">--°</span>
+      </div>
+      <div class="fo-divider"></div>
+      <div class="fo-item">
+        <span class="fo-label">TARGET YAW</span>
+        <span class="fo-value" id="fo-target-yaw">--°</span>
+      </div>
+      <div class="fo-divider"></div>
+      <div class="fo-item">
+        <span class="fo-label">DIFF</span>
+        <span class="fo-value" id="fo-diff">--°</span>
+      </div>
+      <div class="fo-divider"></div>
+      <div class="fo-item">
+        <span class="fo-label">LOOKING</span>
+        <span class="fo-looking" id="fo-looking">-</span>
+      </div>
+    </section>
+
     <section class="panels">
 
       <div class="panel">
@@ -254,9 +277,37 @@
       } catch(e) { console.error(e); }
     }
 
+    async function fetchFaceOrientation() {
+      try {
+        const res  = await fetch('/api/face_orientation');
+        const data = await res.json();
+
+        document.getElementById('fo-user-yaw').textContent =
+          data.user_yaw !== null ? `${data.user_yaw}°` : '--°';
+        document.getElementById('fo-target-yaw').textContent =
+          data.target_yaw !== null ? `${data.target_yaw}°` : '--°';
+        document.getElementById('fo-diff').textContent =
+          data.diff !== null ? `${data.diff}°` : '--°';
+
+        const lookingEl = document.getElementById('fo-looking');
+        if (data.target_yaw === null) {
+          lookingEl.textContent = '-';
+          lookingEl.className   = 'fo-looking';
+        } else if (data.is_looking) {
+          lookingEl.textContent = '✓ YES';
+          lookingEl.className   = 'fo-looking yes';
+        } else {
+          lookingEl.textContent = '✗ NO';
+          lookingEl.className   = 'fo-looking no';
+        }
+      } catch(e) { console.error(e); }
+    }
+
+    setInterval(fetchFaceOrientation, 300);
     setInterval(fetchDetections, 1000);
     setInterval(fetchAzure,     2000);
     setInterval(fetchState,     500);
+    fetchFaceOrientation();    
     fetchDetections();
     fetchAzure();
     fetchState();

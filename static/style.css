@@ -555,3 +555,73 @@ footer {
     padding-top: 16px;
   }
 }
+
+/* ========== Face Orientation Bar ========== */
+.face-orientation-bar {
+  background: #fff;
+  border: 0.5px solid #e4e3e0;
+  border-radius: 12px;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 8px;
+}
+
+.fo-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.fo-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #aaa;
+}
+
+.fo-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 20px;
+  font-weight: 500;
+  color: #1a1a18;
+}
+
+.fo-divider {
+  width: 0.5px;
+  height: 40px;
+  background: #e4e3e0;
+  flex-shrink: 0;
+}
+
+.fo-looking {
+  font-size: 18px;
+  font-weight: 500;
+  padding: 4px 16px;
+  border-radius: 99px;
+  background: #f4f4f2;
+  color: #888;
+  transition: all 0.3s;
+}
+
+.fo-looking.yes {
+  background: #edf7f2;
+  color: #0F6E56;
+}
+
+.fo-looking.no {
+  background: #fdf0ee;
+  color: #c0392b;
+}
+
+@media (max-width: 768px) {
+  .face-orientation-bar {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .fo-divider { display: none; }
+}

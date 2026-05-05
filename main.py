@@ -195,6 +195,29 @@ def api_state():
         "target": attention_controller.get_target(),
     })
 
+@app.route('/api/face_orientation')
+def api_face_orientation():
+    from tracking import face_tracker
+    orientation = face_tracker._face_detector.get_latest_yaw()
+    target = attention_controller.get_target()
+    
+    target_yaw = None
+    diff       = None
+    if target:
+        from controller.attention_controller import image_to_servo_values, FACE_ANGLE_THRESH
+        cx, cy     = target["center"]
+        servos     = image_to_servo_values(cx, cy)
+        target_yaw = round(servos["Head_Y"] / (1400 / 70.0), 1)
+        diff       = round(abs(orientation - target_yaw), 1)
+
+    return jsonify({
+        "user_yaw":   round(orientation, 1),
+        "target_yaw": target_yaw,
+        "diff":       diff,
+        "threshold":  15.0,
+        "is_looking": diff < 15.0 if diff is not None else False,
+    })
+
 # ========== 起動 ==========
 if __name__ == '__main__':
     threading.Thread(target=camera_user_loop, daemon=True).start()
