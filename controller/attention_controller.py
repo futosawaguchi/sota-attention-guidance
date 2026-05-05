@@ -135,7 +135,7 @@ def _guide_loop(target: dict, get_faces, get_face_angle):
     time.sleep(0.3)
     send_tts("これを見てください")
     time.sleep(0.3)
-
+    user_head_y = get_face_angle()
     loop_count = 0
     while True:
         if time.time() - start_time > GUIDE_TIMEOUT_SEC:
@@ -153,7 +153,6 @@ def _guide_loop(target: dict, get_faces, get_face_angle):
             break
         
         # ③ ユーザの方へ顔を向ける（カメラAの顔追従角度を使用）2秒
-        user_head_y = get_face_angle()
         sota_smooth(
             start_servo=all_servos,
             end_servo={**arm_only, "Head_Y": user_head_y, "Head_P": 0},

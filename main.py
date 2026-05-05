@@ -41,12 +41,20 @@ _faces_lock   = threading.Lock()
 
 # ========== カメラAループ（ユーザ顔追従） ==========
 def camera_user_loop():
-    global _latest_user_frame
+    global _latest_user_frame, _latest_faces, _latest_face_angle
     camera_user.start()
     while True:
         frame = camera_user.get_frame()
         if frame is None:
             time.sleep(0.01)
+            continue
+        is_guiding = attention_controller.get_state() != "idle"
+        
+        # 誘導中は顔追従を完全に止める
+        if is_guiding:
+            # フレームの取得と保存だけ行い、サーボ送信はしない
+            with _user_frame_lock:
+                _latest_user_frame = frame
             continue
         frame, faces, angles = face_tracker.process_frame(frame)
         with _user_frame_lock:
