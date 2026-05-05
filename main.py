@@ -52,7 +52,8 @@ def camera_user_loop():
         
         # 誘導中は顔追従を完全に止める
         if is_guiding:
-            # フレームの取得と保存だけ行い、サーボ送信はしない
+            # 誘導中: サーボ送信は止めるがMediaPipe顔向き推定は継続
+            face_tracker._face_detector.process(frame)
             with _user_frame_lock:
                 _latest_user_frame = frame
             continue
