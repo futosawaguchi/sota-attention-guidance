@@ -39,7 +39,8 @@ _running        = False
 _last_labels    = set()
 _guided_labels  = set()   # 誘導済みラベル
 _guided_lock    = threading.Lock()
-
+_all_guided    = False  # 全誘導完了フラグ
+_reset_time    = 0.0    # リセット予定時刻
 
 # ========== ラベル日本語変換 ==========
 LABEL_JA = {
@@ -242,6 +243,7 @@ def _do_success(target: dict):
 # ========== メインループ ==========
 def _control_loop(get_detections, get_faces, get_face_angle):
     global _state, _target, _last_labels, _guided_labels
+    global _all_guided, _reset_time
 
     while _running:
         time.sleep(CHECK_INTERVAL_SEC)
@@ -255,17 +257,28 @@ def _control_loop(get_detections, get_faces, get_face_angle):
         if _in_cooldown():
             continue
 
+        # リセット待機中
+        if _all_guided:
+            if time.time() < _reset_time:
+                continue
+            # 15秒経過 → リセットして再開
+            send_tts("もう一度紹介します。")
+            with _guided_lock:
+                _guided_labels = set()
+            _all_guided = False
+            continue
+
         detections     = get_detections()
         detections     = [d for d in detections if d["label"] not in EXCLUDE_LABELS]
         current_labels = {d["label"] for d in detections}
 
-        changed        = current_labels != _last_labels
-        _last_labels   = current_labels
+        # 新しいラベルが追加されたときだけ誘導済みリストから外す
+        new_labels   = current_labels - _last_labels
+        _last_labels = current_labels
 
-        # 新しい物体が追加されたら誘導済みリストをリセット
-        if changed:
+        if new_labels:
             with _guided_lock:
-                _guided_labels = set()
+                _guided_labels -= new_labels
 
         # 未誘導の物体だけ対象にする
         with _guided_lock:
@@ -274,6 +287,14 @@ def _control_loop(get_detections, get_faces, get_face_angle):
         candidates = [d for d in detections if d["label"] not in guided]
 
         if not candidates:
+            # 検出物体が0件の場合は何もしない
+            if not detections:
+                continue
+            # 全物体の誘導完了
+            if not _all_guided:
+                _all_guided  = True
+                _reset_time  = time.time() + 15.0
+                send_tts("全ての物体の紹介が完了しました。15秒後にもう一度紹介します。")
             continue
 
         # confidence最高のものを選ぶ
