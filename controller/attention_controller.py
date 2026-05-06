@@ -13,6 +13,7 @@ from sota.controller import smooth_send as sota_smooth
 STATE_IDLE    = "idle"
 STATE_GUIDING = "guiding"
 STATE_SUCCESS = "success"
+STATE_USER_GUIDING = "user_guiding"
 
 # ========== 設定 ==========
 GUIDE_TIMEOUT_SEC  = 20.0
@@ -328,3 +329,104 @@ def get_state() -> str:
 def get_target() -> dict:
     with _state_lock:
         return _target
+    
+def start_user_guidance(pointing_direction: dict, detections: list):
+    """
+    ユーザからの誘導を開始する
+    main.pyから呼ばれる
+
+    Parameters
+    ----------
+    pointing_direction: hand_detectorから取得した指の方向
+    detections: 現在の物体検出結果
+    """
+    global _state
+
+    with _state_lock:
+        if _state != STATE_IDLE:
+            return False  # 待機中以外は受け付けない
+        _state = STATE_USER_GUIDING
+
+    threading.Thread(
+        target=_user_guide_loop,
+        args=(pointing_direction, detections),
+        daemon=True
+    ).start()
+    return True
+
+
+def _user_guide_loop(pointing_direction: dict, detections: list):
+    """ユーザからの誘導ループ"""
+    global _state
+
+    USER_GUIDE_LOOK_SEC = 5.0   # 物体を見る時間
+    USER_GUIDE_TIMEOUT  = 20.0  # タイムアウト
+
+    start_time = time.time()
+
+    # 指の方向から最も近い物体を特定
+    target = _find_target_from_pointing(pointing_direction, detections)
+
+    if target is None:
+        send_tts("指差している物体が見つかりませんでした。")
+        with _state_lock:
+            _state = STATE_IDLE
+        return
+
+    label_ja = _label_to_ja(target["label"])
+
+    # Sotaが物体の方向へ向く
+    cx, cy  = target["center"]
+    servos  = image_to_servo_values(cx, cy)
+    sota_smooth(
+        start_servo=sota._current_posture.copy(),
+        end_servo=servos,
+        duration_sec=1.0
+    )
+
+    send_tts(f"{label_ja}を見ています。")
+    time.sleep(USER_GUIDE_LOOK_SEC)
+
+    # 正面に戻る
+    sota_smooth(
+        start_servo=sota._current_posture.copy(),
+        end_servo={"Head_Y": 0, "Head_P": 0},
+        duration_sec=1.0
+    )
+    send_tts(f"{label_ja}を見ました。")
+
+    with _state_lock:
+        _state = STATE_IDLE
+
+
+def _find_target_from_pointing(pointing_direction: dict, detections: list) -> dict | None:
+    """
+    指の水平角度から最も近い物体を特定する
+
+    pointing_direction["horizontal"]: 指の水平角度（右が正・左が負）
+    各物体のHead_Y角度と比較して最も近いものを返す
+    """
+    if not detections:
+        return None
+
+    finger_angle = pointing_direction["horizontal"]
+
+    best_target = None
+    best_diff   = float("inf")
+
+    for d in detections:
+        if d["label"] in EXCLUDE_LABELS:
+            continue
+        cx, cy     = d["center"]
+        servos     = image_to_servo_values(cx, cy)
+        obj_angle  = servos["Head_Y"] / (1400 / 70.0)
+        diff       = abs(finger_angle - obj_angle)
+        if diff < best_diff:
+            best_diff   = diff
+            best_target = d
+
+    # 30度以上離れていたら「指差していない」とみなす
+    if best_diff > 30.0:
+        return None
+
+    return best_target
