@@ -12,6 +12,7 @@ from voice import assistant
 from controller import attention_controller
 import socket as _socket
 from tracking.hand_detector import HandDetector
+from voice.assistant import send_tts
 
 # 遅延初期化
 _hand_detector_instance = None
@@ -43,6 +44,8 @@ _env_frame_lock    = threading.Lock()
 _detections_lock   = threading.Lock()
 _latest_face_angle = 0  # ユーザの顔角度（Head_Y値）
 _face_angle_lock   = threading.Lock()
+_latest_pointing      = None
+_latest_pointing_time = 0.0
 
 # ========== 共有データへのアクセサ関数 ==========
 # attention_controllerに渡すゲッター関数
@@ -56,11 +59,11 @@ _faces_lock   = threading.Lock()
 
 _latest_pointing   = None
 _pointing_lock     = threading.Lock()
-HAND_DETECT_INTERVAL = 1.0
+HAND_DETECT_INTERVAL = 0.2
 
 # ========== カメラAループ（ユーザ顔追従） ==========
 def camera_user_loop():
-    global _latest_user_frame, _latest_faces, _latest_face_angle, _latest_pointing
+    global _latest_user_frame, _latest_faces, _latest_face_angle, _latest_pointing, _latest_pointing_time
     camera_user.start()
     last_hand_detect = 0.0
     while True:
@@ -78,14 +81,16 @@ def camera_user_loop():
                 _latest_user_frame = frame
             continue
         frame, faces, angles = face_tracker.process_frame(frame)
-        # 手検出（1秒に1回）
+        # 手検出（0.2秒に1回）
         now = time.time()
         if now - last_hand_detect >= HAND_DETECT_INTERVAL:
             try:
                 hd = get_hand_detector()
                 _, gesture, direction = hd.process(frame)
                 with _pointing_lock:
-                    _latest_pointing = direction
+                    if direction is not None:
+                        _latest_pointing      = direction
+                        _latest_pointing_time = now
             except Exception as e:
                 print(f"[Main] 手検出エラー: {e}")
             last_hand_detect = now
@@ -192,23 +197,22 @@ def trigger_receiver_loop():
             print(f"[Main] トリガー受信エラー: {e}")
 
 def _handle_trigger():
-    """トリガー受信時の処理"""
-    # 待機中以外は無視
     if attention_controller.get_state() != "idle":
         print("[Main] 誘導中のためトリガー無視")
         return
 
-    # 手の検出結果を確認
-    pointing = get_latest_pointing()
-    if pointing is None:
+    now = time.time()
+    with _pointing_lock:
+        pointing      = _latest_pointing
+        pointing_time = _latest_pointing_time
+
+    # 2秒以内に手が検出されていればOK
+    if pointing is None or (now - pointing_time) > 2.0:
         print("[Main] 手が検出されていないためトリガー無視")
-        from voice.assistant import send_tts
         send_tts("手で指差しながら言ってください。")
         return
 
-    # 現在の物体検出結果を取得
     detections = get_latest_detections()
-
     print(f"[Main] ユーザ誘導開始: pointing={pointing}")
     attention_controller.start_user_guidance(pointing, detections)
 
