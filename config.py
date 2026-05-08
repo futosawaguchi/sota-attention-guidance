@@ -56,3 +56,5 @@ HAND_TRACKING_CONFIDENCE  = 0.5
 # ========== MediaPipe Hand ==========
 MAX_NUM_HANDS             = 1
 DEFAULT_HAND_LANDMARK_VISIBLE = True
+
+TTS_OUTPUT_DEVICE = int(os.getenv("TTS_OUTPUT_DEVICE", 6))

@@ -168,7 +168,8 @@ def play_tts(text: str):
 
     is_ai_speaking.set()
     try:
-        sd.play(pcm, samplerate=24000, blocking=True)
+        device = config.TTS_OUTPUT_DEVICE if config.TTS_OUTPUT_DEVICE >= 0 else None
+        sd.play(pcm, samplerate=24000, blocking=True, device=device)
         sd.wait()  # バージイン検知なしで最後まで再生
     finally:
         is_ai_speaking.clear()
