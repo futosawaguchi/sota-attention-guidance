@@ -402,14 +402,17 @@ def _user_guide_loop(pointing_direction: dict, detections: list):
 def _find_target_from_pointing(pointing_direction: dict, detections: list) -> dict | None:
     """
     指の水平角度から最も近い物体を特定する
-
-    pointing_direction["horizontal"]: 指の水平角度（右が正・左が負）
-    各物体のHead_Y角度と比較して最も近いものを返す
+    カメラAとカメラBの座標系が逆なので反転して計算する
     """
     if not detections:
         return None
 
-    finger_angle = pointing_direction["horizontal"]
+    horiz        = pointing_direction["horizontal"]
+    sota_head_y  = sota._current_posture.get("Head_Y", 0)
+    sota_head_deg = sota_head_y / (1400 / 70.0)
+
+    # カメラAの座標系を反転してSota基準角度に変換
+    sota_based_angle = -horiz + sota_head_deg
 
     best_target = None
     best_diff   = float("inf")
@@ -417,10 +420,10 @@ def _find_target_from_pointing(pointing_direction: dict, detections: list) -> di
     for d in detections:
         if d["label"] in EXCLUDE_LABELS:
             continue
-        cx, cy     = d["center"]
-        servos     = image_to_servo_values(cx, cy)
-        obj_angle  = servos["Head_Y"] / (1400 / 70.0)
-        diff       = abs(finger_angle - obj_angle)
+        cx, cy    = d["center"]
+        servos    = image_to_servo_values(cx, cy)
+        obj_angle = servos["Head_Y"] / (1400 / 70.0)
+        diff      = abs(sota_based_angle - obj_angle)
         if diff < best_diff:
             best_diff   = diff
             best_target = d
@@ -428,5 +431,8 @@ def _find_target_from_pointing(pointing_direction: dict, detections: list) -> di
     # 30度以上離れていたら「指差していない」とみなす
     if best_diff > 30.0:
         return None
+
+    print(f"[Pointing] sota_based={sota_based_angle:.1f} "
+          f"target={best_target['label']} diff={best_diff:.1f}")
 
     return best_target
