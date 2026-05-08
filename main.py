@@ -13,7 +13,18 @@ from controller import attention_controller
 import socket as _socket
 from tracking.hand_detector import HandDetector
 
-hand_detector = HandDetector()
+# 遅延初期化
+_hand_detector_instance = None
+_hand_detector_lock     = threading.Lock()
+
+def get_hand_detector():
+    global _hand_detector_instance
+    with _hand_detector_lock:
+        if _hand_detector_instance is None:
+            print("[Main] HandDetector初期化中...")
+            _hand_detector_instance = HandDetector()
+            print("[Main] HandDetector初期化完了")
+        return _hand_detector_instance
 
 app = Flask(__name__)
 
@@ -51,6 +62,7 @@ HAND_DETECT_INTERVAL = 1.0
 def camera_user_loop():
     global _latest_user_frame, _latest_faces, _latest_face_angle, _latest_pointing
     camera_user.start()
+    last_hand_detect = 0.0
     while True:
         frame = camera_user.get_frame()
         if frame is None:
@@ -69,9 +81,13 @@ def camera_user_loop():
         # 手検出（1秒に1回）
         now = time.time()
         if now - last_hand_detect >= HAND_DETECT_INTERVAL:
-            _, gesture, direction = hand_detector.process(frame)
-            with _pointing_lock:
-                _latest_pointing = direction  # Noneか指の方向dict
+            try:
+                hd = get_hand_detector()
+                _, gesture, direction = hd.process(frame)
+                with _pointing_lock:
+                    _latest_pointing = direction
+            except Exception as e:
+                print(f"[Main] 手検出エラー: {e}")
             last_hand_detect = now
         with _user_frame_lock:
             _latest_user_frame = frame

@@ -13,6 +13,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+MIC_DEVICE = int(os.getenv("TRIGGER_MIC_DEVICE", 0))
+
 # ===== Azure STT設定 =====
 API_KEY    = os.getenv("AZURE_API_KEY")
 AZURE_BASE = os.getenv("AZURE_BASE_URL")
@@ -96,7 +98,8 @@ def vad_loop():
 
     with sd.RawInputStream(
         samplerate=SR, blocksize=FRAME_SAMPLES,
-        dtype="int16", channels=1, callback=audio_callback
+        dtype="int16", channels=1, callback=audio_callback,
+        device=MIC_DEVICE if MIC_DEVICE >= 0 else None
     ):
         print("[Trigger] トリガー検出待機中...")
 
