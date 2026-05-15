@@ -68,6 +68,15 @@ LABEL_JA = {
     "tape":        "テープ",
 }
 
+import socket as _socket
+
+_speaking_notify_sock = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
+
+def _notify_trigger_server(is_speaking: bool):
+    """trigger_serverに発話中フラグを通知する"""
+    msg = b"SPEAKING_START" if is_speaking else b"SPEAKING_END"
+    _speaking_notify_sock.sendto(msg, ("127.0.0.1", 19002))
+
 def _label_to_ja(label: str) -> str:
     """YOLOラベルを日本語に変換する（未登録はそのまま返す）"""
     return LABEL_JA.get(label, label)
@@ -358,7 +367,7 @@ def start_user_guidance(pointing_direction: dict, detections: list):
 def _user_guide_loop(pointing_direction: dict, detections: list):
     """ユーザからの誘導ループ"""
     global _state, _last_guide_end
-
+    _notify_trigger_server(True)
     USER_GUIDE_LOOK_SEC = 5.0   # 物体を見る時間
     USER_GUIDE_TIMEOUT  = 20.0  # タイムアウト
 
@@ -369,6 +378,7 @@ def _user_guide_loop(pointing_direction: dict, detections: list):
 
     if target is None:
         send_tts("指差している物体が見つかりませんでした。")
+        _notify_trigger_server(False)
         with _state_lock:
             _state = STATE_IDLE
         return
@@ -395,6 +405,7 @@ def _user_guide_loop(pointing_direction: dict, detections: list):
     )
     send_tts(f"{label_ja}を見ました。")
     _last_guide_end = time.time()
+    _notify_trigger_server(False)
     with _state_lock:
         _state = STATE_IDLE
 
