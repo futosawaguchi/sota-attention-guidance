@@ -15,6 +15,15 @@ load_dotenv()
 
 MIC_DEVICE = int(os.getenv("TRIGGER_MIC_DEVICE", 0))
 
+# ===== 発話中フラグ =====
+_is_sota_speaking = False
+_speaking_lock    = threading.Lock()
+
+# tts_serverからの通知受信用ソケット
+_speaking_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+_speaking_sock.bind(("127.0.0.1", 19002))
+_speaking_sock.settimeout(0.1)
+
 # ===== Azure STT設定 =====
 API_KEY    = os.getenv("AZURE_API_KEY")
 AZURE_BASE = os.getenv("AZURE_BASE_URL")
@@ -105,6 +114,11 @@ def vad_loop():
 
         while True:
             frame = raw_queue.get()
+            
+            with _speaking_lock:
+                sota_speaking = _is_sota_speaking
+            if sota_speaking:
+                continue
 
             try:
                 is_speech = vad.is_speech(frame, SR)
@@ -132,8 +146,26 @@ def vad_loop():
                         silent_count  = 0
                         in_speech     = False
 
-
+def speaking_listener():
+    global _is_sota_speaking
+    while True:
+        try:
+            data, _ = _speaking_sock.recvfrom(1024)
+            if data == b"SPEAKING_START":
+                with _speaking_lock:
+                    _is_sota_speaking = True
+                print("[Trigger] Sota発話中 → VAD無視")
+            elif data == b"SPEAKING_END":
+                with _speaking_lock:
+                    _is_sota_speaking = False
+                print("[Trigger] Sota発話終了 → VAD再開")
+        except socket.timeout:
+            continue
+        except Exception as e:
+            print(f"[Trigger] 発話通知受信エラー: {e}")
+            
 if __name__ == "__main__":
+    threading.Thread(target=speaking_listener, daemon=True).start()
     try:
         vad_loop()
     except KeyboardInterrupt:
