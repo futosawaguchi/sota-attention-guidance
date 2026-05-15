@@ -16,11 +16,11 @@ STATE_SUCCESS = "success"
 STATE_USER_GUIDING = "user_guiding"
 
 # ========== 設定 ==========
-GUIDE_TIMEOUT_SEC  = 20.0
+GUIDE_TIMEOUT_SEC  = 30.0
 SUCCESS_HOLD_SEC   =  2.0
 FACE_ANGLE_THRESH  = 15.0
 CHECK_INTERVAL_SEC =  0.2
-COOLDOWN_SEC       = 15.0
+COOLDOWN_SEC       = 25.0
 
 # ========== キャリブレーションデータ読み込み ==========
 with open("angle_calibration.json", "r") as f:
@@ -357,7 +357,7 @@ def start_user_guidance(pointing_direction: dict, detections: list):
 
 def _user_guide_loop(pointing_direction: dict, detections: list):
     """ユーザからの誘導ループ"""
-    global _state
+    global _state, _last_guide_end
 
     USER_GUIDE_LOOK_SEC = 5.0   # 物体を見る時間
     USER_GUIDE_TIMEOUT  = 20.0  # タイムアウト
@@ -394,7 +394,7 @@ def _user_guide_loop(pointing_direction: dict, detections: list):
         duration_sec=1.0
     )
     send_tts(f"{label_ja}を見ました。")
-
+    _last_guide_end = time.time()
     with _state_lock:
         _state = STATE_IDLE
 
