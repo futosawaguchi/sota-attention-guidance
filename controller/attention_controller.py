@@ -404,6 +404,8 @@ def _user_guide_loop(pointing_direction: dict, detections: list):
         duration_sec=1.0
     )
     send_tts(f"{label_ja}を見ました。")
+    time.sleep(1.0)
+    sota.reset_posture()
     _last_guide_end = time.time()
     _notify_trigger_server(False)
     with _state_lock:
